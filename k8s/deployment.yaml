@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: governed-research-agent
+  labels:
+    app: governed-research-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: governed-research-agent
+  template:
+    metadata:
+      labels:
+        app: governed-research-agent
+    spec:
+      containers:
+        - name: governed-research-agent
+          image: governed-research-agent:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: NOOA_MODEL
+              value: "gemini/gemini-3.5-flash-lite"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: governed-research-agent-secrets
+                  key: gemini-api-key
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false

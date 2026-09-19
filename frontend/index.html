@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Governed Research Agent</title>
+<style>
+  :root {
+    --bg: #04160e;
+    --bg-soft: #062617;
+    --surface: #0a3320;
+    --border: #114a2c;
+    --accent: #f1c40f;
+    --accent-soft: #f7dc6f;
+    --text: #f7faf8;
+    --muted: #a3c1ad;
+    --danger: #e74c3c;
+    --ok: #2ecc71;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Inter, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    padding: 2.5rem 1.5rem 1.5rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { margin: 0 0 0.5rem; font-size: 1.6rem; letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--muted); max-width: 640px; margin-inline: auto; font-size: 0.95rem; }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    display: grid;
+    gap: 1.5rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem;
+  }
+  .card h2 { margin: 0 0 1rem; font-size: 1.05rem; color: var(--accent-soft); }
+  .arch {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .arch .step {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.45rem 0.8rem;
+  }
+  .arch .step.gate { border-color: var(--accent); color: var(--accent-soft); }
+  .arch .arrow { color: var(--accent); }
+  textarea {
+    width: 100%;
+    min-height: 80px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 0.9rem;
+    font-size: 0.95rem;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid var(--accent); }
+  button {
+    margin-top: 0.75rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 1.4rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  button:hover { background: var(--accent-soft); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .verdict {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-soft);
+    display: none;
+  }
+  .verdict.show { display: block; }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    margin-right: 0.5rem;
+  }
+  .tag.supported { background: rgba(46, 204, 113, 0.18); color: var(--ok); }
+  .tag.refuted { background: rgba(231, 76, 60, 0.18); color: var(--danger); }
+  .tag.unclear { background: rgba(241, 196, 15, 0.18); color: var(--accent-soft); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+  .stat { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem; text-align: center; }
+  .stat .n { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .stat .l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .log { max-height: 220px; overflow-y: auto; font-family: ui-monospace, monospace; font-size: 0.78rem; color: var(--muted); }
+  .log div { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+  .error-banner { background: rgba(231, 76, 60, 0.15); border: 1px solid var(--danger); color: #ff8c7a; padding: 0.9rem; border-radius: 10px; margin-top: 1rem; display: none; }
+  .error-banner.show { display: block; }
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding-bottom: 2rem; }
+  footer a { color: var(--accent-soft); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Governed Research Agent</h1>
+  <p>A NOOA agent with cost, retry, and timeout governance built into its own class — not bolted on as an external proxy. Try it: the budget resets when the server restarts, so a few requests will trip the circuit breaker on purpose.</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>How a call flows</h2>
+    <div class="arch">
+      <div class="step">Your claim</div>
+      <div class="arrow">&rarr;</div>
+      <div class="step gate">Budget check (deterministic)</div>
+      <div class="arrow">&rarr;</div>
+      <div class="step">LLM assesses the claim</div>
+      <div class="arrow">&rarr;</div>
+      <div class="step gate">Retry / timeout enforcement (deterministic)</div>
+      <div class="arrow">&rarr;</div>
+      <div class="step">Verdict + audit log</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Verify a claim</h2>
+    <textarea id="claim" placeholder="e.g. NVIDIA released NOOA, a single-class Python agent framework, in August 2026."></textarea>
+    <div><button id="submit">Verify claim</button></div>
+
+    <div class="error-banner" id="error"></div>
+
+    <div class="verdict" id="verdict">
+      <div id="verdict-tag"></div>
+      <p id="verdict-reasoning" style="margin: 0.75rem 0 0; line-height: 1.5;"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Live governance state</h2>
+    <div class="stats">
+      <div class="stat"><div class="n" id="stat-made">0</div><div class="l">Calls made</div></div>
+      <div class="stat"><div class="n" id="stat-remaining">-</div><div class="l">Remaining</div></div>
+      <div class="stat"><div class="n" id="stat-retries">0</div><div class="l">Retries used</div></div>
+      <div class="stat"><div class="n" id="stat-failures">0</div><div class="l">Failures</div></div>
+    </div>
+    <h2 style="margin-top: 1.25rem;">Audit log</h2>
+    <div class="log" id="log"><div>No calls yet.</div></div>
+  </div>
+</main>
+
+<footer>
+  Built on <a href="https://github.com/NVIDIA-NeMo/labs-OO-Agents" target="_blank">NOOA</a> (NVIDIA, Aug 2026) &middot;
+  <a href="https://github.com/HonTime2023/governed-research-agent" target="_blank">Source on GitHub</a>
+</footer>
+
+<script>
+  const claimEl = document.getElementById("claim");
+  const submitEl = document.getElementById("submit");
+  const verdictEl = document.getElementById("verdict");
+  const verdictTagEl = document.getElementById("verdict-tag");
+  const verdictReasoningEl = document.getElementById("verdict-reasoning");
+  const errorEl = document.getElementById("error");
+  const logEl = document.getElementById("log");
+
+  function renderGovernance(g) {
+    document.getElementById("stat-made").textContent = g.calls_made;
+    document.getElementById("stat-remaining").textContent = g.calls_remaining;
+    document.getElementById("stat-retries").textContent = g.retries_used;
+    document.getElementById("stat-failures").textContent = g.failures;
+    if (g.log && g.log.length) {
+      logEl.innerHTML = g.log.slice().reverse().map(e =>
+        `<div>[${e.method}] attempt ${e.attempt} — ${e.outcome} — ${e.elapsed_s}s</div>`
+      ).join("");
+    }
+  }
+
+  submitEl.addEventListener("click", async () => {
+    const claim = claimEl.value.trim();
+    if (!claim) return;
+    submitEl.disabled = true;
+    submitEl.textContent = "Verifying…";
+    errorEl.classList.remove("show");
+    verdictEl.classList.remove("show");
+
+    try {
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ claim }),
+      });
+      const data = await res.json();
+      renderGovernance(data.governance);
+
+      if (!data.ok) {
+        errorEl.textContent = data.error === "budget_exceeded"
+          ? `Budget guard refused this call: ${data.detail}`
+          : `Retry circuit tripped: ${data.detail}`;
+        errorEl.classList.add("show");
+      } else {
+        const v = data.verdict;
+        verdictTagEl.innerHTML = `<span class="tag ${v.verdict}">${v.verdict}</span><span style="color: var(--muted); font-size: 0.85rem;">confidence: ${v.confidence}</span>`;
+        verdictReasoningEl.textContent = v.reasoning;
+        verdictEl.classList.add("show");
+      }
+    } catch (e) {
+      errorEl.textContent = "Request failed: " + e.message;
+      errorEl.classList.add("show");
+    } finally {
+      submitEl.disabled = false;
+      submitEl.textContent = "Verify claim";
+    }
+  });
+
+  // Load current governance state on page load.
+  fetch("/api/governance").then(r => r.json()).then(renderGovernance).catch(() => {});
+</script>
+
+</body>
+</html>

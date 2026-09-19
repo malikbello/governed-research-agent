@@ -1,0 +1,6 @@
+nooa
+litellm
+python-dotenv
+pydantic
+fastapi
+uvicorn[standard]
