@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from assessment_runner import run_assessment
 from checklist import TEMPLATES
 from due_diligence_agent import DueDiligenceAgent
 from governed_agent import BudgetExceededError, RetryCircuitOpenError
+from security import require_api_key
 
 app = FastAPI(title="Governed Research Agent")
 
@@ -75,7 +76,7 @@ def list_templates() -> dict:
     }
 
 
-@app.post("/api/assessments")
+@app.post("/api/assessments", dependencies=[Depends(require_api_key)])
 async def create_assessment(req: NewAssessmentRequest, background_tasks: BackgroundTasks) -> dict:
     if not req.subject.strip():
         raise HTTPException(status_code=400, detail="subject must not be empty")
@@ -123,7 +124,7 @@ def governance() -> dict:
     return agent.governance_report()
 
 
-@app.post("/api/verify")
+@app.post("/api/verify", dependencies=[Depends(require_api_key)])
 async def verify(req: VerifyRequest) -> dict:
     if not req.claim.strip():
         raise HTTPException(status_code=400, detail="claim must not be empty")

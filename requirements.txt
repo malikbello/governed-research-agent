@@ -6,3 +6,5 @@ python-dotenv
 pydantic
 fastapi
 uvicorn[standard]
+httpx  # explicit: nvd_lookup.py imports it directly, don't rely on it being
+       # pulled in transitively via nooa

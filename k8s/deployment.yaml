@@ -14,6 +14,16 @@ spec:
       labels:
         app: governed-research-agent
     spec:
+      # Sandboxed execution for LLM-generated code: NOOA's CodeAct strategy lets
+      # the model write and run Python at runtime, and NVIDIA's own guidance is
+      # explicit that a real OS-level sandbox is needed for that -- Docker's
+      # default runtime alone is "the minimum," not the real recommendation.
+      # Requires a cluster with gVisor available as a RuntimeClass (e.g. GKE
+      # Sandbox: `gcloud container node-pools create ... --sandbox-type=gvisor`).
+      # Left commented rather than silently claiming a protection this cluster
+      # may not actually provide -- uncomment once deployed to a gVisor-capable
+      # node pool, and verify with `kubectl get runtimeclass` first.
+      # runtimeClassName: gvisor
       containers:
         - name: governed-research-agent
           image: governed-research-agent:latest
@@ -27,6 +37,16 @@ spec:
                 secretKeyRef:
                   name: governed-research-agent-secrets
                   key: gemini-api-key
+            - name: TAVILY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: governed-research-agent-secrets
+                  key: tavily-api-key
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: governed-research-agent-secrets
+                  key: api-key
           resources:
             requests:
               cpu: "100m"
@@ -49,4 +69,10 @@ spec:
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            # Not fully read-only: the assessment SQLite db and npx's runtime
+            # cache both need to write inside /app. A stronger future version
+            # would move assessments.db to a mounted volume and set
+            # readOnlyRootFilesystem: true with that one path excepted.
             readOnlyRootFilesystem: false

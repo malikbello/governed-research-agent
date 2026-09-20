@@ -1,0 +1,44 @@
+# Restricts this pod's outbound traffic to only what it actually needs:
+# DNS, the Gemini API, the Tavily search API, and the NVD API. Directly
+# implements the "block network egress to unknown destinations" control
+# recommended for agents that execute LLM-generated code -- if a prompt
+# injection or a bug ever tried to exfiltrate data to an arbitrary host,
+# this policy is what would actually stop the connection, not just log it.
+#
+# Requires a CNI that enforces NetworkPolicy (Calico, Cilium, GKE's native
+# implementation all do; Kubernetes' default kubenet does not -- verify
+# your cluster's CNI supports enforcement before relying on this).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: governed-research-agent-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: governed-research-agent
+  policyTypes:
+    - Egress
+  egress:
+    # DNS -- required for every other rule below to resolve hostnames at all.
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS out to the internet -- scoped by port only, since Kubernetes
+    # NetworkPolicy can't match on hostname/SNI directly. A stronger version
+    # would route egress through a proxy (e.g. an egress gateway) that can
+    # allowlist by domain (generativelanguage.googleapis.com, api.tavily.com,
+    # services.nvd.nist.gov specifically) rather than all of port 443.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
