@@ -17,15 +17,41 @@ real, common failure modes, not a hypothetical one.
 
 from __future__ import annotations
 
+import datetime
 import os
 from pathlib import Path
 
+import anyio
 from nooa import Agent
 from nooa.mcp import MCPManager, MCPTool
 from nooa.unifiedllm.registry import get_llm_client
 from pydantic import BaseModel
 
 from governed_agent import GovernedMixin
+
+# --- Compatibility patch: NOOA <-> mcp <-> anyio timedelta/float mismatch -----
+# NOOA's MCP client (nooa/mcp/client.py) sets its default tool-call timeout as a
+# `datetime.timedelta` (its own MCPClientBase default: `timedelta(seconds=60)`),
+# following the official MCP SDK convention. `mcp` 2.2.0's ClientSession.send_request
+# forwards that value straight into `anyio.fail_after(...)` unconverted -- but
+# anyio.fail_after's `delay` parameter is documented and typed as `float | None`
+# seconds, not a timedelta, and does `current_time() + delay` internally, which
+# raises `TypeError: unsupported operand type(s) for +: 'float' and 'datetime.timedelta'`.
+# Confirmed by reading both libraries' source directly, not guessed: this is a real
+# incompatibility between the latest `mcp` (2.2.0) and latest `anyio` (4.15.1) as of
+# this writing, not a bug in our own code. Patched here rather than editing
+# site-packages, so it survives reinstalls and is visible in version control.
+_original_fail_after = anyio.fail_after
+
+
+def _fail_after_accepting_timedelta(delay, *args, **kwargs):
+    if isinstance(delay, datetime.timedelta):
+        delay = delay.total_seconds()
+    return _original_fail_after(delay, *args, **kwargs)
+
+
+anyio.fail_after = _fail_after_accepting_timedelta
+# --- end compatibility patch --------------------------------------------------
 
 MODEL = os.environ.get("NOOA_MODEL", "gemini/gemini-3.5-flash-lite")
 llm = get_llm_client(MODEL)
@@ -71,7 +97,16 @@ class DueDiligenceAgent(GovernedMixin, Agent, llm=llm):
     def __init__(self, max_calls: int = 10, max_retries_per_call: int = 2) -> None:
         super().__init__()
         self.init_governance(max_calls=max_calls, max_retries_per_call=max_retries_per_call, timeout_s=45.0)
-        self.search = MCPManager.create_from_server("tavily", mcp_file=MCP_CONFIG)
+        # NOOA's MCPManager does not expand `${VAR}` placeholders in .mcp.json's env
+        # block, despite the file format otherwise mirroring VS Code/Claude Desktop's
+        # convention (confirmed by reading the source -- no expandvars/os.environ
+        # substitution logic exists in nooa/mcp/*.py). Passing `env` directly here,
+        # with the real resolved value, sidesteps that rather than relying on
+        # unexpanded placeholder text silently reaching the Tavily server.
+        tavily_key = os.environ.get("TAVILY_API_KEY", "")
+        self.search = MCPManager.create_from_server(
+            "tavily", mcp_file=MCP_CONFIG, env={"TAVILY_API_KEY": tavily_key}
+        )
 
     async def _investigate(self, claim: str) -> DueDiligenceVerdict:
         """Search the web for evidence about this claim, then verify it using

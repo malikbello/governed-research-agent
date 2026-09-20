@@ -1,4 +1,6 @@
 nooa[mcp]
+mcp==1.30.0  # pinned: mcp>=2.0.0 renamed Tool.inputSchema -> input_schema, which NOOA's
+             # installed release still reads as the old camelCase name -- see README.
 litellm
 python-dotenv
 pydantic
