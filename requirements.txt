@@ -1,4 +1,4 @@
-nooa
+nooa[mcp]
 litellm
 python-dotenv
 pydantic

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nooa-governance"
+version = "0.1.0"
+description = "Object-oriented cost, retry, and timeout governance for NOOA agents -- baked into the agent's own class, not bolted on as an external proxy."
+readme = "PACKAGE_README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Malik Pelumi Bello", email = "belloayopelumi@gmail.com" }
+]
+keywords = ["nooa", "agents", "governance", "llm", "cost-control", "reliability"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/HonTime2023/governed-research-agent"
+Repository = "https://github.com/HonTime2023/governed-research-agent"
+Issues = "https://github.com/HonTime2023/governed-research-agent/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nooa_governance"]

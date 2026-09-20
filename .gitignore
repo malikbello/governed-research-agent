@@ -4,3 +4,9 @@
 __pycache__/
 *.pyc
 .nooa/
+dist/
+build/
+*.egg-info/
+src/*.egg-info/
+node_modules/
+
