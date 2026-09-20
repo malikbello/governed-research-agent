@@ -1,0 +1,37 @@
+name: Publish nooa-governance to PyPI
+
+# Fires when a GitHub Release is published, not on every push -- publishing
+# a new PyPI version should be a deliberate act, not a side effect of commits.
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    # Matches the "Environment name" field on PyPI's trusted-publisher setup --
+    # this also lets you require manual approval on this environment in GitHub
+    # repo settings if you want a human-in-the-loop check before every publish.
+    environment: release
+    permissions:
+      # Required for PyPI's OIDC trust exchange -- this is the whole reason no
+      # API token needs to exist anywhere for this to work.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No username, no password, no api-key input -- trusted publishing
+        # means this action authenticates via the OIDC token GitHub issues
+        # for this job, exchanged for a short-lived (15-minute) PyPI token
+        # automatically. That's the entire point.
