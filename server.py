@@ -14,8 +14,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from due_diligence_agent import DueDiligenceAgent
 from governed_agent import BudgetExceededError, RetryCircuitOpenError
-from research_agent import ClaimVerificationAgent
 
 app = FastAPI(title="Governed Research Agent")
 
@@ -25,7 +25,10 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 # One agent per process, budget shared across requests -- deliberately, so the
 # dashboard can actually demonstrate the budget guard tripping across multiple
 # demo calls, the same way a real long-running service would exhaust a real budget.
-agent = ClaimVerificationAgent(max_calls=15, max_retries_per_call=2)
+# Uses DueDiligenceAgent (real web search + citations via Tavily MCP), not the
+# earlier memory-only ClaimVerificationAgent (still in research_agent.py, kept
+# for the CLI demo/tests) -- this is the version worth showing.
+agent = DueDiligenceAgent(max_calls=15, max_retries_per_call=2)
 
 
 class VerifyRequest(BaseModel):
@@ -60,7 +63,7 @@ async def verify(req: VerifyRequest) -> dict:
         # requests ("dictionary changed size during iteration"), then a timeout on
         # the retry. Reusing the single running loop (the normal FastAPI pattern)
         # fixes it at the root instead of retrying around it.
-        verdict = await agent.verify(req.claim)
+        verdict = await agent.investigate(req.claim)
         return {"ok": True, "verdict": verdict.model_dump(), "governance": agent.governance_report()}
     except BudgetExceededError as exc:
         return {"ok": False, "error": "budget_exceeded", "detail": str(exc), "governance": agent.governance_report()}
