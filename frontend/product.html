@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Diligence — Vendor & Tool Due Diligence</title>
+<title>Verity — Vendor & Tool Due Diligence</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -35,7 +35,7 @@
     padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
   }
   .brand { display: flex; align-items: center; gap: 0.6rem; }
-  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.95rem; }
+  .brand .logo { width: 30px; height: 30px; flex-shrink: 0; }
   .brand h1 { font-size: 1.05rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
   .brand .sub { color: var(--muted); font-size: 0.78rem; }
   header nav { display: flex; gap: 1.1rem; align-items: center; font-size: 0.85rem; }
@@ -123,15 +123,25 @@
   .sev-LOW { background: var(--ok-soft); color: var(--ok); }
 
   .placeholder { color: var(--muted-2); text-align: center; padding: 3rem 1rem; font-size: 0.9rem; }
+
+  /* Charts */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.1rem; }
+  @media (max-width: 700px) { .chart-row { grid-template-columns: 1fr; } }
+  .chart-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem; }
+  .chart-box h3 { margin: 0.2rem 0 0; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); text-align: center; }
+  .chart-gauge { width: 100%; height: 190px; }
+  .chart-radar { width: 100%; height: 210px; }
+  .chart-cve { width: 100%; height: 160px; }
+  .chart-history { width: 100%; height: 130px; }
 </style>
 </head>
 <body>
 
 <header>
   <div class="brand">
-    <div class="logo">D</div>
+    <img class="logo" src="/static/logo.svg" alt="Verity" />
     <div>
-      <h1>Diligence</h1>
+      <h1>Verity</h1>
       <div class="sub">Vendor & tool due diligence, run automatically</div>
     </div>
   </div>
@@ -158,6 +168,13 @@
       </div>
     </div>
 
+    <div class="card" style="margin-bottom:1.1rem;">
+      <div class="card-head">Risk distribution — all assessments</div>
+      <div class="card-body">
+        <div id="chart-history" class="chart-history"></div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-head">History</div>
       <div class="card-body" id="history-list">
@@ -174,11 +191,15 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
   let TEMPLATES = {};
   let selectedTemplate = null;
   let currentAssessmentId = null;
   let pollTimer = null;
+
+  const ECHART_TEXT_COLOR = "#6b7280";
+  let gaugeChart = null, radarChart = null, cveChart = null, historyChart = null;
 
   async function loadTemplates() {
     const res = await fetch("/api/templates");
@@ -206,6 +227,7 @@
   async function loadHistory() {
     const res = await fetch("/api/assessments");
     const items = await res.json();
+    renderHistoryChart();
     const el = document.getElementById("history-list");
     if (!items.length) {
       el.innerHTML = '<div class="empty-hint">No assessments yet.</div>';
@@ -253,9 +275,17 @@
           <div class="subj">${record.subject} — ${template?.label || record.template_key}</div>
         </div>
       </div>
+      <div class="chart-row">
+        <div class="chart-box"><div id="chart-gauge" class="chart-gauge"></div><h3>Readiness</h3></div>
+        <div class="chart-box"><div id="chart-radar" class="chart-radar"></div><h3>Coverage by domain</h3></div>
+      </div>
     `;
 
     const items = template ? template.items : [];
+    const cveItem = items.find(i => record.items[i.key]?.result?.cves);
+    if (cveItem) {
+      html += `<div class="chart-box" style="margin-bottom:1.1rem;"><div id="chart-cve" class="chart-cve"></div><h3>CVE severity breakdown</h3></div>`;
+    }
     html += items.map(item => {
       const entry = record.items[item.key] || { status: "pending", result: null };
       const dotClass = statusDotClass(entry.status, entry.result);
@@ -296,6 +326,121 @@
     }).join("");
 
     document.getElementById("report-body").innerHTML = html;
+    renderGaugeChart(record, template);
+    renderRadarChart(record, template);
+    if (cveItem) renderCveChart(record.items[cveItem.key].result.cves);
+  }
+
+  function verdictIsRedFlag(verdict) {
+    return ["refuted", "false", "flagged", "error"].includes(verdict);
+  }
+
+  function renderGaugeChart(record, template) {
+    const el = document.getElementById("chart-gauge");
+    if (!el) return;
+    if (!gaugeChart) gaugeChart = echarts.init(el);
+
+    const items = template ? template.items : [];
+    const total = items.length;
+    const done = items.filter(i => record.items[i.key]?.status === "done").length;
+    const flagged = items.filter(i => verdictIsRedFlag(record.items[i.key]?.result?.verdict)).length;
+    // Score: 100 = no flags, scales down with each red flag relative to total items.
+    const score = total ? Math.round(100 * (1 - flagged / total)) : 0;
+
+    gaugeChart.setOption({
+      series: [{
+        type: "gauge",
+        min: 0, max: 100,
+        radius: "90%",
+        progress: { show: true, width: 14 },
+        axisLine: { lineStyle: { width: 14, color: [[0.5, "#dc2626"], [0.8, "#d97706"], [1, "#16a34a"]] } },
+        pointer: { show: true, length: "55%" },
+        axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
+        detail: { valueAnimation: true, formatter: v => Math.round(v), fontSize: 26, color: "#1a2233", offsetCenter: [0, "70%"] },
+        title: { show: true, offsetCenter: [0, "95%"], fontSize: 11, color: ECHART_TEXT_COLOR },
+        data: [{ value: score, name: `${done}/${total} checks complete` }],
+      }],
+    });
+  }
+
+  function renderRadarChart(record, template) {
+    const el = document.getElementById("chart-radar");
+    if (!el) return;
+    if (!radarChart) radarChart = echarts.init(el);
+
+    const items = template ? template.items : [];
+    const domains = [...new Set(items.map(i => i.domain))];
+    const scores = domains.map(domain => {
+      const domainItems = items.filter(i => i.domain === domain);
+      const flagged = domainItems.filter(i => verdictIsRedFlag(record.items[i.key]?.result?.verdict)).length;
+      return Math.round(100 * (1 - flagged / domainItems.length));
+    });
+
+    radarChart.setOption({
+      radar: {
+        indicator: domains.map(d => ({ name: d, max: 100 })),
+        radius: "68%",
+        splitArea: { areaStyle: { color: ["#f6f7f9", "#ffffff"] } },
+        axisName: { fontSize: 9, color: ECHART_TEXT_COLOR },
+      },
+      series: [{
+        type: "radar",
+        data: [{ value: scores, areaStyle: { color: "rgba(49,81,211,0.25)" }, lineStyle: { color: "#3151d3" }, itemStyle: { color: "#3151d3" } }],
+      }],
+    });
+  }
+
+  function renderCveChart(cves) {
+    const el = document.getElementById("chart-cve");
+    if (!el) return;
+    if (!cveChart) cveChart = echarts.init(el);
+
+    const order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+    const colors = { CRITICAL: "#dc2626", HIGH: "#dc2626", MEDIUM: "#d97706", LOW: "#16a34a" };
+    const counts = order.map(sev => cves.filter(c => c.cvss_severity === sev).length);
+
+    cveChart.setOption({
+      grid: { left: 60, right: 20, top: 10, bottom: 20 },
+      xAxis: { type: "value", axisLabel: { color: ECHART_TEXT_COLOR }, splitLine: { lineStyle: { color: "#e3e6eb" } } },
+      yAxis: { type: "category", data: order, axisLabel: { color: ECHART_TEXT_COLOR } },
+      series: [{
+        type: "bar",
+        data: counts.map((c, i) => ({ value: c, itemStyle: { color: colors[order[i]] } })),
+        barWidth: "55%",
+      }],
+    });
+  }
+
+  async function renderHistoryChart() {
+    const el = document.getElementById("chart-history");
+    if (!el) return;
+    if (!historyChart) historyChart = echarts.init(el);
+
+    const res = await fetch("/api/assessments");
+    const items = await res.json();
+    const buckets = { Low: 0, Medium: 0, High: 0, Other: 0 };
+    items.forEach(a => {
+      if (!a.readiness) { buckets.Other++; return; }
+      if (a.readiness.startsWith("Low")) buckets.Low++;
+      else if (a.readiness.startsWith("High")) buckets.High++;
+      else if (a.readiness.startsWith("Needs")) buckets.Medium++;
+      else buckets.Other++;
+    });
+
+    historyChart.setOption({
+      grid: { left: 50, right: 20, top: 10, bottom: 20 },
+      xAxis: { type: "value", axisLabel: { color: ECHART_TEXT_COLOR }, splitLine: { lineStyle: { color: "#e3e6eb" } } },
+      yAxis: { type: "category", data: ["High", "Medium", "Low"], axisLabel: { color: ECHART_TEXT_COLOR } },
+      series: [{
+        type: "bar",
+        data: [
+          { value: buckets.High, itemStyle: { color: "#dc2626" } },
+          { value: buckets.Medium, itemStyle: { color: "#d97706" } },
+          { value: buckets.Low, itemStyle: { color: "#16a34a" } },
+        ],
+        barWidth: "55%",
+      }],
+    });
   }
 
   async function pollAssessment(id, keepPolling) {

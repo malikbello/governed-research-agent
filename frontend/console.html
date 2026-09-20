@@ -199,6 +199,13 @@
   </div>
 
   <div class="panel">
+    <div class="panel-head">Call latency over time</div>
+    <div class="panel-body">
+      <div id="chart-latency" style="width:100%;height:200px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
     <div class="panel-head">Investigate a claim</div>
     <div class="panel-body">
       <textarea id="claim" placeholder="e.g. The NVIDIA NOOA agent framework is licensed under Apache-2.0."></textarea>
@@ -237,17 +244,43 @@
   Built on NOOA (NVIDIA, Aug 2026) · governance layer published separately as <a href="https://pypi.org/project/nooa-governance/" target="_blank">nooa-governance</a>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
   const claimEl = document.getElementById("claim");
   const submitEl = document.getElementById("submit");
   const verdictEl = document.getElementById("verdict");
   const errorEl = document.getElementById("error");
+  let latencyChart = null;
+
+  function renderLatencyChart(log) {
+    const el = document.getElementById("chart-latency");
+    if (!el) return;
+    if (!latencyChart) latencyChart = echarts.init(el, null, { renderer: "canvas" });
+
+    const ordered = log.slice().reverse();
+    const xLabels = ordered.map((_, i) => "#" + (i + 1));
+    const latencies = ordered.map(e => e.elapsed_s);
+    const colors = ordered.map(e => e.outcome.startsWith("error") ? "#f87171" : "#4ade80");
+
+    latencyChart.setOption({
+      grid: { left: 40, right: 16, top: 16, bottom: 28 },
+      xAxis: { type: "category", data: xLabels, axisLabel: { color: "#7c8798", fontSize: 10 }, axisLine: { lineStyle: { color: "#1f2733" } } },
+      yAxis: { type: "value", name: "seconds", nameTextStyle: { color: "#7c8798" }, axisLabel: { color: "#7c8798" }, splitLine: { lineStyle: { color: "#171d28" } } },
+      series: [{
+        type: "bar",
+        data: latencies.map((v, i) => ({ value: v, itemStyle: { color: colors[i] } })),
+        barWidth: "60%",
+      }],
+      backgroundColor: "transparent",
+    });
+  }
 
   function renderGovernance(g) {
     document.getElementById("m-made").textContent = g.calls_made;
     document.getElementById("m-remaining").textContent = g.calls_remaining;
     document.getElementById("m-retries").textContent = g.retries_used;
     document.getElementById("m-failures").textContent = g.failures;
+    if (g.log) renderLatencyChart(g.log);
 
     const body = document.getElementById("log-body");
     if (g.log && g.log.length) {
