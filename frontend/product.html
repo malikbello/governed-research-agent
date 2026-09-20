@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Diligence — Vendor & Tool Due Diligence</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #e3e6eb;
+    --border-strong: #cfd4dc;
+    --text: #1a2233;
+    --muted: #6b7280;
+    --muted-2: #9ca3af;
+    --accent: #3151d3;
+    --accent-soft: #eef1fd;
+    --accent-hover: #2440ad;
+    --ok: #16a34a;
+    --ok-soft: #eafaf0;
+    --warn: #d97706;
+    --warn-soft: #fef6e7;
+    --err: #dc2626;
+    --err-soft: #fdecec;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14.5px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
+  }
+  .brand { display: flex; align-items: center; gap: 0.6rem; }
+  .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 0.95rem; }
+  .brand h1 { font-size: 1.05rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .brand .sub { color: var(--muted); font-size: 0.78rem; }
+  header nav { display: flex; gap: 1.1rem; align-items: center; font-size: 0.85rem; }
+  header nav a.pill { background: var(--accent-soft); color: var(--accent); padding: 0.4rem 0.85rem; border-radius: 7px; font-weight: 600; }
+
+  .layout { max-width: 1180px; margin: 0 auto; padding: 1.75rem; display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .card-head { padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.88rem; }
+  .card-body { padding: 1.1rem; }
+
+  /* Sidebar: history */
+  .history-item {
+    display: block; padding: 0.7rem 0.85rem; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; margin-bottom: 0.4rem;
+  }
+  .history-item:hover { background: var(--accent-soft); }
+  .history-item.active { background: var(--accent-soft); border-color: var(--accent); }
+  .history-item .subj { font-weight: 600; font-size: 0.87rem; }
+  .history-item .meta { color: var(--muted); font-size: 0.76rem; margin-top: 0.15rem; }
+  .empty-hint { color: var(--muted-2); font-size: 0.84rem; padding: 0.5rem; }
+
+  /* Form */
+  label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 0.35rem; color: var(--text); }
+  input[type=text], select {
+    width: 100%; padding: 0.65rem 0.8rem; border: 1px solid var(--border-strong); border-radius: 8px;
+    font-size: 0.9rem; font-family: var(--sans); background: var(--surface); color: var(--text);
+  }
+  input[type=text]:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .field { margin-bottom: 0.9rem; }
+  .template-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .template-card {
+    border: 1px solid var(--border-strong); border-radius: 8px; padding: 0.7rem 0.8rem; cursor: pointer; font-size: 0.83rem;
+  }
+  .template-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .template-card .t-label { font-weight: 600; }
+  .template-card .t-desc { color: var(--muted); font-size: 0.76rem; margin-top: 0.25rem; line-height: 1.4; }
+  button.primary {
+    background: var(--accent); color: white; border: none; border-radius: 8px;
+    padding: 0.7rem 1.3rem; font-weight: 600; font-size: 0.88rem; cursor: pointer; margin-top: 0.4rem;
+  }
+  button.primary:hover { background: var(--accent-hover); }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Report */
+  .readiness-banner { padding: 1rem 1.2rem; border-radius: 10px; display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.1rem; }
+  .readiness-banner.low { background: var(--ok-soft); border: 1px solid #bbebc9; }
+  .readiness-banner.medium { background: var(--warn-soft); border: 1px solid #f5deac; }
+  .readiness-banner.high, .readiness-banner.failed { background: var(--err-soft); border: 1px solid #f4c2c2; }
+  .readiness-banner .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .readiness-banner.low .dot { background: var(--ok); }
+  .readiness-banner.medium .dot { background: var(--warn); }
+  .readiness-banner.high .dot, .readiness-banner.failed .dot { background: var(--err); }
+  .readiness-banner .title { font-weight: 700; font-size: 0.95rem; }
+  .readiness-banner .subj { color: var(--muted); font-size: 0.8rem; }
+
+  .checklist-item { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.7rem; overflow: hidden; }
+  .checklist-item .ci-head { padding: 0.7rem 0.95rem; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+  .ci-left { display: flex; align-items: center; gap: 0.6rem; }
+  .ci-status { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .ci-status.pending { background: var(--muted-2); }
+  .ci-status.running { background: var(--warn); animation: pulse 1.2s infinite; }
+  .ci-status.done-ok { background: var(--ok); }
+  .ci-status.done-flag { background: var(--err); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .ci-label { font-weight: 600; font-size: 0.87rem; }
+  .ci-domain { color: var(--muted-2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .ci-verdict { font-size: 0.76rem; font-weight: 700; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 999px; }
+  .ci-verdict.supported, .ci-verdict.true, .ci-verdict.no_known_cves { background: var(--ok-soft); color: var(--ok); }
+  .ci-verdict.refuted, .ci-verdict.false, .ci-verdict.flagged, .ci-verdict.error { background: var(--err-soft); color: var(--err); }
+  .ci-verdict.unclear { background: var(--warn-soft); color: var(--warn); }
+  .ci-body { padding: 0 0.95rem 0.9rem; display: none; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+  .ci-body.open { display: block; }
+  .ci-reasoning { font-size: 0.85rem; line-height: 1.55; color: var(--text); margin: 0 0 0.6rem; }
+  .ci-scope { font-size: 0.76rem; color: var(--muted); background: var(--bg); border-radius: 6px; padding: 0.5rem 0.65rem; margin-bottom: 0.6rem; }
+  .ci-scope b { color: var(--text); }
+  .citation-mini { font-size: 0.78rem; padding: 0.4rem 0; border-top: 1px solid var(--border); }
+  .citation-mini a { font-family: var(--mono); font-size: 0.74rem; }
+  .cve-mini { font-size: 0.78rem; padding: 0.45rem 0; border-top: 1px solid var(--border); }
+  .cve-mini .id { font-family: var(--mono); font-weight: 700; }
+  .cve-mini .sev { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; }
+  .sev-CRITICAL, .sev-HIGH { background: var(--err-soft); color: var(--err); }
+  .sev-MEDIUM { background: var(--warn-soft); color: var(--warn); }
+  .sev-LOW { background: var(--ok-soft); color: var(--ok); }
+
+  .placeholder { color: var(--muted-2); text-align: center; padding: 3rem 1rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">D</div>
+    <div>
+      <h1>Diligence</h1>
+      <div class="sub">Vendor & tool due diligence, run automatically</div>
+    </div>
+  </div>
+  <nav>
+    <a href="/console">Engineering console &rarr;</a>
+    <a class="pill" href="https://github.com/HonTime2023/governed-research-agent" target="_blank">View source</a>
+  </nav>
+</header>
+
+<div class="layout">
+  <div>
+    <div class="card" style="margin-bottom:1.1rem;">
+      <div class="card-head">New assessment</div>
+      <div class="card-body">
+        <div class="field">
+          <label for="subject">Subject</label>
+          <input type="text" id="subject" placeholder="e.g. NVIDIA NOOA agent framework" />
+        </div>
+        <div class="field">
+          <label>Assessment type</label>
+          <div class="template-cards" id="template-cards"></div>
+        </div>
+        <button class="primary" id="start-btn" style="width:100%;">Run assessment</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">History</div>
+      <div class="card-body" id="history-list">
+        <div class="empty-hint">No assessments yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="report-panel">
+    <div class="card-head">Report</div>
+    <div class="card-body" id="report-body">
+      <div class="placeholder">Run an assessment, or select one from history, to see a report here.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let TEMPLATES = {};
+  let selectedTemplate = null;
+  let currentAssessmentId = null;
+  let pollTimer = null;
+
+  async function loadTemplates() {
+    const res = await fetch("/api/templates");
+    TEMPLATES = await res.json();
+    const container = document.getElementById("template-cards");
+    container.innerHTML = Object.entries(TEMPLATES).map(([key, t]) => `
+      <div class="template-card" data-key="${key}">
+        <div class="t-label">${t.label}</div>
+        <div class="t-desc">${t.description}</div>
+      </div>
+    `).join("");
+    container.querySelectorAll(".template-card").forEach(el => {
+      el.addEventListener("click", () => {
+        container.querySelectorAll(".template-card").forEach(c => c.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedTemplate = el.dataset.key;
+      });
+    });
+    if (container.firstElementChild) {
+      container.firstElementChild.classList.add("selected");
+      selectedTemplate = container.firstElementChild.dataset.key;
+    }
+  }
+
+  async function loadHistory() {
+    const res = await fetch("/api/assessments");
+    const items = await res.json();
+    const el = document.getElementById("history-list");
+    if (!items.length) {
+      el.innerHTML = '<div class="empty-hint">No assessments yet.</div>';
+      return;
+    }
+    el.innerHTML = items.map(a => `
+      <div class="history-item ${a.id === currentAssessmentId ? 'active' : ''}" data-id="${a.id}">
+        <div class="subj">${a.subject}</div>
+        <div class="meta">${TEMPLATES[a.template_key]?.label || a.template_key} · ${a.status}${a.readiness ? ' · ' + a.readiness : ''}</div>
+      </div>
+    `).join("");
+    el.querySelectorAll(".history-item").forEach(item => {
+      item.addEventListener("click", () => {
+        currentAssessmentId = item.dataset.id;
+        loadHistory();
+        pollAssessment(currentAssessmentId, false);
+      });
+    });
+  }
+
+  function readinessClass(readiness, status) {
+    if (status === "failed") return "failed";
+    if (!readiness) return "medium";
+    if (readiness.startsWith("Low")) return "low";
+    if (readiness.startsWith("High")) return "high";
+    return "medium";
+  }
+
+  function statusDotClass(itemStatus, result) {
+    if (itemStatus !== "done") return itemStatus === "pending" ? "pending" : "running";
+    const v = result?.verdict;
+    if (["supported", "true", "no_known_cves"].includes(v)) return "done-ok";
+    return "done-flag";
+  }
+
+  function renderReport(record) {
+    const template = TEMPLATES[record.template_key];
+    const rClass = readinessClass(record.readiness, record.status);
+
+    let html = `
+      <div class="readiness-banner ${rClass}">
+        <div class="dot"></div>
+        <div>
+          <div class="title">${record.status === 'running' ? 'Assessment running…' : (record.readiness || 'Unknown')}</div>
+          <div class="subj">${record.subject} — ${template?.label || record.template_key}</div>
+        </div>
+      </div>
+    `;
+
+    const items = template ? template.items : [];
+    html += items.map(item => {
+      const entry = record.items[item.key] || { status: "pending", result: null };
+      const dotClass = statusDotClass(entry.status, entry.result);
+      const verdict = entry.result?.verdict || "";
+      let body = "";
+      if (entry.result) {
+        body += `<p class="ci-reasoning">${entry.result.reasoning || ""}</p>`;
+        body += `<div class="ci-scope"><b>Scope:</b> ${entry.result.scope_note || item.scope_note}</div>`;
+        if (entry.result.citations) {
+          body += entry.result.citations.map(c => `
+            <div class="citation-mini"><a href="${c.url}" target="_blank">${c.url}</a><br>"${c.quote}"</div>
+          `).join("");
+        }
+        if (entry.result.cves) {
+          body += entry.result.cves.map(c => `
+            <div class="cve-mini"><span class="id">${c.cve_id}</span>${c.cvss_severity ? `<span class="sev sev-${c.cvss_severity}">${c.cvss_severity}</span>` : ''}<div style="margin-top:0.25rem;color:var(--muted);">${c.description}</div></div>
+          `).join("");
+        }
+      } else {
+        body = `<div class="ci-scope">${item.scope_note}</div>`;
+      }
+
+      return `
+        <div class="checklist-item">
+          <div class="ci-head" onclick="this.parentElement.querySelector('.ci-body').classList.toggle('open')">
+            <div class="ci-left">
+              <span class="ci-status ${dotClass}"></span>
+              <div>
+                <div class="ci-label">${item.label}</div>
+                <div class="ci-domain">${item.domain}</div>
+              </div>
+            </div>
+            ${verdict ? `<span class="ci-verdict ${verdict}">${verdict.replace('_',' ')}</span>` : '<span style="color:var(--muted-2);font-size:0.78rem;">pending</span>'}
+          </div>
+          <div class="ci-body">${body}</div>
+        </div>
+      `;
+    }).join("");
+
+    document.getElementById("report-body").innerHTML = html;
+  }
+
+  async function pollAssessment(id, keepPolling) {
+    const res = await fetch(`/api/assessments/${id}`);
+    if (!res.ok) return;
+    const record = await res.json();
+    renderReport(record);
+    if (keepPolling !== false && record.status === "running") {
+      pollTimer = setTimeout(() => pollAssessment(id, true), 2500);
+    } else {
+      loadHistory();
+    }
+  }
+
+  document.getElementById("start-btn").addEventListener("click", async () => {
+    const subject = document.getElementById("subject").value.trim();
+    if (!subject || !selectedTemplate) return;
+    const btn = document.getElementById("start-btn");
+    btn.disabled = true;
+    btn.textContent = "Starting…";
+
+    const res = await fetch("/api/assessments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, template_key: selectedTemplate }),
+    });
+    const data = await res.json();
+    currentAssessmentId = data.id;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollAssessment(currentAssessmentId, true);
+    loadHistory();
+
+    btn.disabled = false;
+    btn.textContent = "Run assessment";
+  });
+
+  loadTemplates();
+  loadHistory();
+</script>
+
+</body>
+</html>
