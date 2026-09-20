@@ -21,6 +21,15 @@ from governed_agent import GovernedMixin
 MODEL = os.environ.get("NOOA_MODEL", "gemini/gemini-3.5-flash-lite")
 llm = get_llm_client(MODEL)
 
+# NOOA injects Anthropic-style `cache_control` markers on the system message by
+# default (DEFAULT_CACHE_CONTROL_INJECTION_POINTS). Routed through litellm to
+# Gemini, this triggers a Vertex-style context-caching request -- which the
+# Gemini free tier rejects outright (TotalCachedContentStorageTokensPerModelFreeTier
+# limit=0), turning every single call into a guaranteed failure before the model
+# ever runs. Disabling it here is the minimal fix; NOOA doesn't expose this as a
+# constructor override, so we set it directly on the client instance.
+llm.cache_control_injection_points = []
+
 
 class Verdict(BaseModel):
     claim: str

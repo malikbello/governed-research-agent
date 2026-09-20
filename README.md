@@ -26,9 +26,13 @@ Governance logic is ordinary, deterministic Python — never delegated to the LL
 
 `demo.py` runs it against three claims (including one deliberately false claim, to check the agent actually disagrees rather than rubber-stamping a plausible-sounding wrong statement), prints the governance audit trail, and separately proves the budget guard actually refuses a call once the budget is spent — not just that happy-path calls succeed.
 
-## Platform note
+## Platform notes and real gotchas hit building this
 
-NOOA's storage layer imports `fcntl`, a Unix-only module — **it does not run on native Windows Python.** This project is set up to run under WSL (or any Linux/macOS environment). See `.venv-linux/` for the WSL-side virtual environment.
+**NOOA's storage layer imports `fcntl`, a Unix-only module — it does not run on native Windows Python.** Run it under WSL (or any Linux/macOS environment).
+
+**If running under WSL: put the project on WSL's native filesystem, not `/mnt/c/...`.** Building this on the Windows-mounted drive (`/mnt/c/Users/...`), `import litellm` hung indefinitely — not a network issue (confirmed: raw REST calls to the Gemini API returned in under a second from the same machine). `faulthandler.dump_traceback_later` traced it to `importlib._bootstrap_external._path_stat`: WSL's cross-filesystem file access is known to be slow for import-heavy packages (the `openai` SDK alone spans hundreds of files), and every import-time `stat()` call pays that cross-boundary cost. Copying the project to WSL's native filesystem (e.g. `~/projects/governed-research-agent`) and reinstalling there fixed it completely — `import litellm` went from an infinite hang to ~8 seconds.
+
+**NOOA injects Anthropic-style `cache_control` markers on the system message by default** (`DEFAULT_CACHE_CONTROL_INJECTION_POINTS`, not exposed as a `get_llm_client()` override). Routed through LiteLLM to Gemini, this silently becomes a Vertex-style context-caching request — which the Gemini free tier rejects outright (`TotalCachedContentStorageTokensPerModelFreeTier limit=0`), turning every single call into a guaranteed `429` before the model ever runs. Fixed in `research_agent.py` by setting `llm.cache_control_injection_points = []` directly on the client instance after creation.
 
 ## Setup
 
