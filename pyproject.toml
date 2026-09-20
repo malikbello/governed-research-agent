@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nooa-governance"
-version = "0.1.0"
+version = "0.1.1"
 description = "Object-oriented cost, retry, and timeout governance for NOOA agents -- baked into the agent's own class, not bolted on as an external proxy."
 readme = "PACKAGE_README.md"
 requires-python = ">=3.12"
@@ -23,6 +23,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
 
 [project.urls]
 Homepage = "https://github.com/malikbello/governed-research-agent"

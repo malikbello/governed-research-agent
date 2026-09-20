@@ -36,7 +36,9 @@ class MyAgent(GovernedMixin, Agent, llm=llm):
         return await self.governed_call("_do_the_llm_thing", lambda: self._do_the_llm_thing(x))
 ```
 
-Every governed call is checked against a hard call budget *before* any LLM spend happens, retried a bounded number of times with exponential backoff on failure, and time-limited per attempt — never delegated to the LLM, so enforcement holds no matter what the model decides to do. `agent.governance_report()` gives a deterministic audit trail: calls made, retries used, failures, and a per-attempt log.
+Every governed call is checked against a hard call budget *before* any LLM spend happens, retried a bounded number of times with exponential backoff on failure, and time-limited per attempt — never delegated to the LLM, so enforcement holds no matter what the model decides to do. `agent.governance_report()` gives a deterministic audit trail: the limits enforced, calls made, retries used, failures, elapsed time, and a per-attempt log.
+
+`init_governance()` also accepts `non_retryable` (a tuple of exception types to fail fast on instead of retrying — useful for deterministic failures like bad auth) and `max_total_time_s` (an optional cap on cumulative wall-clock time across every governed call, since a per-attempt timeout alone doesn't bound total run time).
 
 ## What this doesn't do (yet)
 
