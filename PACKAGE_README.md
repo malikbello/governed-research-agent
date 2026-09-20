@@ -44,7 +44,7 @@ Every governed call is checked against a hard call budget *before* any LLM spend
 
 ## Full example
 
-A complete, real application built on this library — a claim/due-diligence verification agent with a live dashboard, Docker, and Kubernetes manifests — is in the same repository: [github.com/HonTime2023/governed-research-agent](https://github.com/HonTime2023/governed-research-agent).
+A complete, real application built on this library — a claim/due-diligence verification agent with a live dashboard, Docker, and Kubernetes manifests — is in the same repository: [github.com/malikbello/governed-research-agent](https://github.com/malikbello/governed-research-agent).
 
 ## License
 

@@ -9,6 +9,7 @@ description = "Object-oriented cost, retry, and timeout governance for NOOA agen
 readme = "PACKAGE_README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
+license-files = ["LICENSE"]
 authors = [
     { name = "Malik Pelumi Bello", email = "belloayopelumi@gmail.com" }
 ]
@@ -24,9 +25,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/HonTime2023/governed-research-agent"
-Repository = "https://github.com/HonTime2023/governed-research-agent"
-Issues = "https://github.com/HonTime2023/governed-research-agent/issues"
+Homepage = "https://github.com/malikbello/governed-research-agent"
+Repository = "https://github.com/malikbello/governed-research-agent"
+Issues = "https://github.com/malikbello/governed-research-agent/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nooa_governance"]
