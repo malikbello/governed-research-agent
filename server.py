@@ -48,14 +48,19 @@ def governance() -> dict:
 
 
 @app.post("/api/verify")
-def verify(req: VerifyRequest) -> dict:
-    import asyncio
-
+async def verify(req: VerifyRequest) -> dict:
     if not req.claim.strip():
         raise HTTPException(status_code=400, detail="claim must not be empty")
 
     try:
-        verdict = asyncio.run(agent.verify(req.claim))
+        # `await` directly on uvicorn's already-running event loop. The previous
+        # version called `asyncio.run(...)` here, which spins up a brand-new event
+        # loop for every request against one shared, long-lived agent -- a real bug
+        # found via live testing: it corrupted NOOA's internal async state across
+        # requests ("dictionary changed size during iteration"), then a timeout on
+        # the retry. Reusing the single running loop (the normal FastAPI pattern)
+        # fixes it at the root instead of retrying around it.
+        verdict = await agent.verify(req.claim)
         return {"ok": True, "verdict": verdict.model_dump(), "governance": agent.governance_report()}
     except BudgetExceededError as exc:
         return {"ok": False, "error": "budget_exceeded", "detail": str(exc), "governance": agent.governance_report()}
